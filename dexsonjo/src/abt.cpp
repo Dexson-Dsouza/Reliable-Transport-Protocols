@@ -1,9 +1,9 @@
-
 #include "../include/simulator.h"
 #include <string.h>
-#include <queue>
 #include <vector>
+#include <iostream>
 using namespace std;
+
 /* ******************************************************************
  ALTERNATING BIT AND GO-BACK-N NETWORK EMULATOR: VERSION 1.1  J.F.Kurose
    This code should be used for PA2, unidirectional data transfer
@@ -23,22 +23,26 @@ using namespace std;
 static int seq1;
 static int global_ack = 1;
 static int seq2;
-float timeout = 4.0;
+float timeout = 15;
 vector<msg> buffer;
 struct pkt current;
 
 int checksum(struct pkt packet)
 {
   int check_s = 0;
-  for (int i = 0; i < 20; i++)
+  int payload_size=20;
+  int i=0;
+  while(i<payload_size)
   {
     check_s += packet.payload[i];
+    i++;
   }
   check_s += packet.seqnum;
   check_s += packet.acknum;
   return check_s;
 }
 
+//Create a new packet given message as input
 struct pkt *make_packet(struct msg message)
 {
   struct pkt *new_pkt = new pkt();
@@ -51,27 +55,33 @@ struct pkt *make_packet(struct msg message)
 
 void A_output(struct msg message)
 {
+  //check if ack recv
   if (global_ack == 1)
   {
     if (buffer.empty())
     {
       global_ack = 0;
       current = *make_packet(message);
+      std::cout<<"A new packet Start"<<endl;
       tolayer3(0, current);
       starttimer(0, timeout);
     }
     else
     {
-      global_ack = 0;
+      //send pending pack, save current packt in buffer and reset ack;
+      
       current = *make_packet(buffer[0]);
       buffer.erase(buffer.begin());
       buffer.push_back(message);
+      std::cout<<"A packet continue Start"<<endl;
       tolayer3(0, current);
       starttimer(0, timeout);
+      global_ack = 0;
     }
   }
   else
   {
+    // add in buffer... ack is not recv
     buffer.push_back(message);
   }
 }
@@ -81,6 +91,7 @@ void A_input(struct pkt packet)
 {
   if (packet.acknum == seq1)
   {
+    // set seq number and ack flag
     global_ack = 1;
     seq1 = 1 - seq1; // flip sequence
     stoptimer(0);
@@ -90,7 +101,7 @@ void A_input(struct pkt packet)
 /* called when A's timer goes off */
 void A_timerinterrupt()
 {
-
+  std::cout<<"A off T"<<endl;
   tolayer3(0, current);
   starttimer(0, timeout);
 }
@@ -99,7 +110,8 @@ void A_timerinterrupt()
 /* entity A routines are called. You can use it to do any initialization */
 void A_init()
 {
-  global_ack = 1;
+  // reset A sequence and ack flag
+  // global_ack = 1;
   seq1 = 0;
 }
 
@@ -116,6 +128,7 @@ void B_input(struct pkt packet)
   {
     return;
   }
+  std::cout<<"B new packet Start"<<endl;
   if (seq2 == packet.seqnum)
   {
     tolayer5(1, packet.payload);
@@ -132,5 +145,6 @@ void B_input(struct pkt packet)
 /* entity B routines are called. You can use it to do any initialization */
 void B_init()
 {
+  // reset B sequence
   seq2 = 0;
 }
